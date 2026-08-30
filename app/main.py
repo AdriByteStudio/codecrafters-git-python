@@ -47,6 +47,43 @@ def main():
             with open(object_path, "wb") as f:
                 f.write(zlib.compress(blob))
         print(object_hash)
+    elif command == "ls-tree":
+        flag = sys.argv[2]
+        tree_sha = sys.argv[3]
+        # Path to the tree object file
+        object_path = os.path.join(".git", "objects", tree_sha[:2], tree_sha[2:])
+        with open(object_path, "rb") as f:
+            compressed = f.read()
+        decompressed = zlib.decompress(compressed)
+        # Format: tree <size>\0<entries>
+        # Split on the first null byte to separate header from entries
+        _, entries_data = decompressed.split(b"\0", 1)
+
+        # Parse entries: each is <mode> <name>\0<20_byte_sha>
+        entries = []
+        i = 0
+        while i < len(entries_data):
+            # Find the space separating mode and name
+            space_idx = entries_data.index(b" ", i)
+            mode = entries_data[i:space_idx].decode()
+            # Find the null byte separating name and sha
+            null_idx = entries_data.index(b"\0", space_idx)
+            name = entries_data[space_idx + 1:null_idx].decode()
+            # The 20-byte sha follows the null byte
+            sha = entries_data[null_idx + 1:null_idx + 21].hex()
+            entries.append((mode, name, sha))
+            i = null_idx + 21
+
+        if flag == "--name-only":
+            for _, name, _ in entries:
+                print(name)
+        else:
+            for mode, name, sha in entries:
+                # Convert mode: 40000 -> 040000, others stay as-is
+                if mode == "40000":
+                    mode = "040000"
+                obj_type = "tree" if mode == "040000" else "blob"
+                print(f"{mode} {obj_type} {sha}    {name}")
     else:
         raise RuntimeError(f"Unknown command #{command}")
 
