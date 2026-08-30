@@ -133,6 +133,34 @@ def main():
     elif command == "write-tree":
         tree_sha = write_tree(".")
         print(tree_sha)
+    elif command == "commit-tree":
+        tree_sha = sys.argv[2]
+        # Parse flags: -p <parent_sha> and -m <message>
+        parent_sha = None
+        message = None
+        i = 3
+        while i < len(sys.argv):
+            if sys.argv[i] == "-p":
+                parent_sha = sys.argv[i + 1]
+                i += 2
+            elif sys.argv[i] == "-m":
+                message = sys.argv[i + 1]
+                i += 2
+            else:
+                i += 1
+
+        # Build the commit object content
+        author = "John Doe <john@example.com> 1234567890 +0000"
+        content = f"tree {tree_sha}\n"
+        if parent_sha:
+            content += f"parent {parent_sha}\n"
+        content += f"author {author}\n"
+        content += f"committer {author}\n"
+        content += f"\n{message}\n"
+
+        commit = f"commit {len(content)}\0".encode() + content.encode()
+        commit_sha = write_object(commit)
+        print(commit_sha)
     else:
         raise RuntimeError(f"Unknown command #{command}")
 
