@@ -1,6 +1,7 @@
 import sys
 import os
 import zlib
+import hashlib
 
 
 def main():
@@ -28,6 +29,24 @@ def main():
             # Split on the first null byte to separate header from content
             _, content = decompressed.split(b"\0", 1)
             sys.stdout.buffer.write(content)
+    elif command == "hash-object":
+        flag = sys.argv[2]
+        file_path = sys.argv[3]
+        with open(file_path, "rb") as f:
+            content = f.read()
+        # Build the blob object: blob <size>\0<content>
+        header = f"blob {len(content)}\0".encode()
+        blob = header + content
+        # Compute SHA-1 hash over the uncompressed blob
+        object_hash = hashlib.sha1(blob).hexdigest()
+        if flag == "-w":
+            # Write the compressed object to .git/objects/<first 2 chars>/<remaining 38 chars>
+            object_dir = os.path.join(".git", "objects", object_hash[:2])
+            os.makedirs(object_dir, exist_ok=True)
+            object_path = os.path.join(object_dir, object_hash[2:])
+            with open(object_path, "wb") as f:
+                f.write(zlib.compress(blob))
+        print(object_hash)
     else:
         raise RuntimeError(f"Unknown command #{command}")
 
